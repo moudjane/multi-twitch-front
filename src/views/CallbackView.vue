@@ -1,9 +1,12 @@
-<script setup>
-import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+<template>
+  <main>
+    <h1>Connexion en cours...</h1>
+  </main>
+</template>
 
-const token = ref('')
-const userInfo = ref({})
+<script setup>
+import { onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 
 const router = useRouter()
 
@@ -16,21 +19,18 @@ onMounted(() => {
     const accessToken = params.get('access_token')
 
     if (accessToken) {
-      token.value = accessToken
-
       fetch('http://localhost:3000/callback', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ token: token.value }),
+        body: JSON.stringify({ token: accessToken }),
       })
       .then(response => response.json())
       .then(data => {
         console.log('Token handled by backend', data)
 
-        // Stocker les infos dans le localStorage
-        localStorage.setItem('twitch_access_token', token.value)
+        localStorage.setItem('twitch_access_token', accessToken)
         localStorage.setItem('twitch_user_info', JSON.stringify({
           client_id: data.client_id,
           login: data.login,
@@ -38,32 +38,20 @@ onMounted(() => {
           user_id: data.user_id,
           expires_in: data.expires_in
         }))
-        userInfo.value = {
-          client_id: data.client_id,
-          login: data.login,
-          scopes: data.scopes,
-          user_id: data.user_id,
-          expires_in: data.expires_in
-        }
 
-        router.replace({ path: '/home' })
+        window.location.href = '/home'
       })
       .catch(error => {
         console.error('Error sending token to backend', error)
+        router.push('/login')
       })
     } else {
       console.error('Access token is missing in the URL')
+      router.push('/login')
     }
   } else {
     console.error('No hash fragment found in the URL')
+    router.push('/login')
   }
 })
 </script>
-
-<template>
-  <main>
-    <h1>Callback</h1>
-    <p>Token: {{ token }}</p>
-    <p>User Info: {{ userInfo }}</p>
-  </main>
-</template>
