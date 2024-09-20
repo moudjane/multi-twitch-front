@@ -1,10 +1,10 @@
 <template>
   <div class="multi-streamer-view">
     <h1>Multi-Twitch Viewer</h1>
-    <div v-if="limitedStreamersArray.length" class="streams-grid" :class="gridClass">
+    <div v-if="streamsStore.streamCount" class="streams-grid" :class="streamsStore.gridClass">
       <div
-        v-for="(streamer, index) in limitedStreamersArray"
-        :key="index"
+        v-for="streamer in streamsStore.activeStreams"
+        :key="streamer"
         class="twitch-container"
       >
         <TwitchPlayer
@@ -15,16 +15,17 @@
       </div>
     </div>
     <div v-else>
-      <p>Aucun streamer spécifié dans l'URL.</p>
+      <p>Aucun streamer spécifié.</p>
     </div>
-    <div v-if="streamersArray.length > 4" class="warning">
+    <div v-if="streamsStore.streamCount >= 4" class="warning">
       <p>Vous ne pouvez afficher que 4 streams maximum.</p>
     </div>
   </div>
 </template>
 
 <script>
-import { ref, onMounted, computed } from 'vue';
+import { onMounted } from 'vue';
+import { useStreamsStore } from '../stores/streamsStore';
 import TwitchPlayer from '../components/TwitchPlayer.vue';
 
 export default {
@@ -33,42 +34,24 @@ export default {
     TwitchPlayer
   },
   setup() {
-    const streamersArray = ref([]);
-
-    // Limitation à 4 streams maximum
-    const limitedStreamersArray = computed(() => {
-      return streamersArray.value.slice(0, 4);
-    });
-
-    // Calcul du style de grille en fonction du nombre de streams
-    const gridClass = computed(() => {
-      switch (limitedStreamersArray.value.length) {
-        case 1:
-          return 'grid-one';
-        case 2:
-          return 'grid-two';
-        case 3:
-          return 'grid-three';
-        case 4:
-          return 'grid-four';
-        default:
-          return '';
-      }
-    });
+    const streamsStore = useStreamsStore();
 
     onMounted(() => {
       const streamers = window.location.pathname.split('/').pop();
-      streamersArray.value = streamers ? streamers.split('.') : [];
+      if (streamers) {
+        streamsStore.clearStreams();
+        streamers.split('.').forEach(streamer => streamsStore.addStream(streamer));
+      }
     });
 
     return {
-      streamersArray,
-      limitedStreamersArray,
-      gridClass
+      streamsStore
     };
   }
 };
 </script>
+
+
 
 <style scoped>
 .multi-streamer-view {

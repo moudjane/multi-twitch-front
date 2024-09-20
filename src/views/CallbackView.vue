@@ -18,7 +18,6 @@ onMounted(() => {
     if (accessToken) {
       token.value = accessToken
 
-      // Envoyer le token au backend
       fetch('http://localhost:3000/callback', {
         method: 'POST',
         headers: {

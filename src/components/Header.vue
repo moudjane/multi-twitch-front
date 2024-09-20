@@ -49,7 +49,7 @@ export default {
             localStorage.removeItem('twitch_user_info');
             isAuthenticated.value = false;
             userLogin.value = '';
-            router.push('/login');
+            window.location.href = '/';
         };
 
         const goToFollowers = () => {

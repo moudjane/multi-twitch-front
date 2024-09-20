@@ -1,51 +1,36 @@
 <template>
   <div class="home-page">
-    <LiveChannels @channel-selected="showStream" />
-    
+    <LiveChannels />
     <div class="main-content">
       <h1>Bienvenue sur la page d'accueil</h1>
-
-      <div v-if="selectedChannel && twitchPlayerUrl" class="twitch-player">
-        <iframe
-          :src="twitchPlayerUrl"
-          height="480"
+      <div v-if="streamsStore.streamCount" class="twitch-player">
+        <TwitchPlayer
+          :channel="streamsStore.activeStreams[0]"
           width="720"
-          allowfullscreen>
-        </iframe>
+          height="480"
+        />
       </div>
-
       <p v-else>Veuillez sélectionner une chaîne pour afficher le stream.</p>
     </div>
   </div>
 </template>
 
 <script>
-import { ref, onMounted } from 'vue';
+import { useStreamsStore } from '../stores/streamsStore';
 import LiveChannels from '../components/LiveChannels.vue';
+import TwitchPlayer from '../components/TwitchPlayer.vue';
 
 export default {
   name: 'HomeView',
   components: {
-    LiveChannels
+    LiveChannels,
+    TwitchPlayer
   },
   setup() {
-    const selectedChannel = ref(null);
-    const twitchPlayerUrl = ref(null);
-
-    const showStream = (channelLogin) => {
-      selectedChannel.value = channelLogin;
-    };
-
-    onMounted(() => {
-      if (selectedChannel.value) {
-        twitchPlayerUrl.value = `https://player.twitch.tv/?channel=${selectedChannel.value}&parent=${window.location.hostname}`;
-      }
-    });
+    const streamsStore = useStreamsStore();
 
     return {
-      selectedChannel,
-      twitchPlayerUrl,
-      showStream
+      streamsStore
     };
   }
 };
