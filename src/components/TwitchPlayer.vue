@@ -1,35 +1,47 @@
 <template>
-    <div>
-      <iframe
-        :src="twitchEmbedUrl"
-        height="480"
-        width="720"
-        allowfullscreen>
-      </iframe>
-    </div>
-  </template>
-  
-  <script>
-  export default {
-    name: 'TwitchPlayer',
-    props: {
-      channel: {
-        type: String,
-        required: true
-      }
-    },
-    computed: {
-      twitchEmbedUrl() {
-        return `https://player.twitch.tv/?channel=${this.channel}&parent=${window.location.hostname}`;
-      }
+  <div class="twitch-player-container">
+    <iframe
+      :src="twitchEmbedUrl"
+      width="100%"
+      height="100%"
+      allowfullscreen>
+    </iframe>
+  </div>
+</template>
+
+<script>
+import { ref, onMounted } from 'vue';
+
+export default {
+  name: 'TwitchPlayer',
+  props: {
+    channel: {
+      type: String,
+      required: true
     }
-  };
-  </script>
-  
-  <style scoped>
-  div {
-    display: flex;
-    justify-content: center;
-    align-items: center;
+  },
+  setup(props) {
+    const twitchEmbedUrl = ref('');
+
+    onMounted(() => {
+      twitchEmbedUrl.value = `https://player.twitch.tv/?channel=${props.channel}&parent=${window.location.hostname}`;
+    });
+
+    return {
+      twitchEmbedUrl
+    };
   }
-  </style>
+};
+</script>
+
+<style scoped>
+.twitch-player-container {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 16 / 9;
+}
+
+iframe {
+  border: none;
+}
+</style>
