@@ -1,6 +1,5 @@
 <template>
   <div class="home-page">
-    <LiveChannels />
     <div class="main-content">
       <h1>Bienvenue sur la page d'accueil</h1>
       <div v-if="streamsStore.streamCount" class="twitch-player">
@@ -17,13 +16,11 @@
 
 <script>
 import { useStreamsStore } from '../stores/streamsStore';
-import LiveChannels from '../components/LiveChannels.vue';
 import TwitchPlayer from '../components/TwitchPlayer.vue';
 
 export default {
   name: 'HomeView',
   components: {
-    LiveChannels,
     TwitchPlayer
   },
   setup() {

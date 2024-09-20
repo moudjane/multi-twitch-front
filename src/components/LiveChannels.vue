@@ -1,161 +1,164 @@
 <template>
-  <div class="live-channels-sidebar">
-    <h2>Favoris</h2>
-    <ul v-if="favoritesList.length > 0">
-      <li v-for="(channel, index) in favoritesList" :key="index" class="channel-item">
-        <a href="javascript:void(0);" @click="addStreamer(channel.user_login)" class="channel-link">
-          <img :src="channel.thumbnail_url.replace('{width}', 80).replace('{height}', 45)" alt="thumbnail" class="thumbnail" />
-          <div class="channel-info">
-            <p class="channel-name">{{ channel.user_name }}</p>
-            <p class="viewers">{{ channel.viewer_count }} spectateurs</p>
-          </div>
-        </a>
-        <span 
-          class="favorite-star favorited"
-          @click.stop="toggleFavorite(channel.user_id)"
-        >★</span>
-      </li>
-    </ul>
-    <p v-else>Aucun favori en live</p>
+  <div class="live-channels-sidebar" :class="{ 'dark-mode': isDarkMode }">
+    <div class="sidebar-header">
+      <h2>Chaînes en direct</h2>
+      <button @click="$emit('close-sidebar')" class="close-button">×</button>
+    </div>
 
-    <h2>Chaînes en direct</h2>
-    <ul v-if="liveChannels.length > 0">
-      <li v-for="(channel, index) in liveChannels" :key="index" class="channel-item">
-        <a href="javascript:void(0);" @click="addStreamer(channel.user_login)" class="channel-link">
-          <img :src="channel.thumbnail_url.replace('{width}', 80).replace('{height}', 45)" alt="thumbnail" class="thumbnail" />
-          <div class="channel-info">
-            <p class="channel-name">{{ channel.user_name }}</p>
-            <p class="viewers">{{ channel.viewer_count }} spectateurs</p>
-          </div>
-        </a>
-        <span 
-          class="favorite-star"
-          :class="{ favorited: isFavorite(channel.user_id) }"
-          @click.stop="toggleFavorite(channel.user_id)"
-        >★</span>
-      </li>
-    </ul>
-    <p v-else>Aucune chaîne en direct suivie</p>
+    <div class="category-section">
+      <h3>
+        <span class="category-icon">⭐</span>
+        Favoris
+        <span class="channel-count">({{ favoritesList.length }})</span>
+      </h3>
+      <transition-group name="list" tag="ul">
+        <li v-for="channel in favoritesList" :key="channel.user_id" class="channel-item">
+          <ChannelCard 
+            :channel="channel" 
+            @add-streamer="addStreamer" 
+            @toggle-favorite="toggleFavorite"
+            :isFavorite="true"
+          />
+        </li>
+      </transition-group>
+      <p v-if="favoritesList.length === 0" class="empty-message">Aucun favori en live</p>
+    </div>
+
+    <div class="category-section">
+      <h3>
+        <span class="category-icon">🔴</span>
+        Chaînes suivies
+        <span class="channel-count">({{ liveChannels.length }})</span>
+      </h3>
+      <transition-group name="list" tag="ul">
+        <li v-for="channel in liveChannels" :key="channel.user_id" class="channel-item">
+          <ChannelCard 
+            :channel="channel" 
+            @add-streamer="addStreamer" 
+            @toggle-favorite="toggleFavorite"
+            :isFavorite="isFavorite(channel.user_id)"
+          />
+        </li>
+      </transition-group>
+      <p v-if="liveChannels.length === 0" class="empty-message">Aucune chaîne en direct suivie</p>
+    </div>
   </div>
 </template>
 
 <script>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted,  onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useStreamsStore } from '../stores/streamsStore';
+import ChannelCard from './ChannelCard.vue';
 
 export default {
   name: 'LiveChannels',
+  components: {
+    ChannelCard
+  },
+  props: {
+    isDarkMode: Boolean
+  },
+  emits: ['close-sidebar'],
   setup() {
     const liveChannels = ref([]);
-    const favoritesList = ref([]);
     const favorites = ref([]);
     const router = useRouter();
     const streamsStore = useStreamsStore();
 
-    const fetchLiveChannels = () => {
+    const favoritesList = computed(() => 
+      liveChannels.value.filter(channel => favorites.value.includes(channel.user_id))
+        .sort((a, b) => b.viewer_count - a.viewer_count)
+    );
+
+    const fetchLiveChannels = async () => {
       const userInfo = JSON.parse(localStorage.getItem('twitch_user_info'));
       const accessToken = localStorage.getItem('twitch_access_token');
 
       if (userInfo && accessToken) {
-        fetch(`http://localhost:3000/getFollowedLive/${userInfo.user_id}`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          }
-        })
-        .then(response => response.json())
-        .then(data => {
+        try {
+          const response = await fetch(`http://localhost:3000/getFollowedLive/${userInfo.user_id}`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+            }
+          });
+          const data = await response.json();
           liveChannels.value = data.data || [];
-          updateFavoritesList();
-        })
-        .catch(error => {
+        } catch (error) {
           console.error('Erreur lors de la récupération des chaînes en live:', error);
-        });
+        }
 
-        // Fetch favorites
-        fetch(`http://localhost:3000/getFavorites/${userInfo.user_id}`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          }
-        })
-        .then(response => response.json())
-        .then(data => {
+        try {
+          const response = await fetch(`http://localhost:3000/getFavorites/${userInfo.user_id}`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+            }
+          });
+          const data = await response.json();
           favorites.value = data || [];
-          updateFavoritesList();
-        })
-        .catch(error => {
+        } catch (error) {
           console.error('Erreur lors de la récupération des favoris:', error);
-        });
+        }
       } else {
         console.error('Utilisateur non connecté ou informations manquantes dans le localStorage.');
       }
     };
 
-    const updateFavoritesList = () => {
-      favoritesList.value = liveChannels.value
-        .filter(channel => favorites.value.includes(channel.user_id))
-        .sort((a, b) => b.viewer_count - a.viewer_count);
-    };
-
     const addStreamer = (channelLogin) => {
       streamsStore.addStream(channelLogin);
       const streamers = streamsStore.activeStreams.join('.');
-      router.push({ name: 'multi-streamers', params: { streamers } })
+      router.push({ name: 'multi-streamers', params: { streamers } });
     };
 
     const isFavorite = (channelId) => {
       return favorites.value.includes(channelId);
     };
 
-    const toggleFavorite = (channelId) => {
+    const toggleFavorite = async (channelId) => {
       const userInfo = JSON.parse(localStorage.getItem('twitch_user_info'));
       const accessToken = localStorage.getItem('twitch_access_token');
 
       if (isFavorite(channelId)) {
         favorites.value = favorites.value.filter(id => id !== channelId);
-        updateFavoritesList();
-
-        fetch(`http://localhost:3000/deleteFavorites/${userInfo.user_id}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ favoriteId: channelId }),
-        })
-        .then(response => response.json())
-        .then(data => {
-          console.log('Favorite deleted', data);
-        })
-        .catch(error => {
+        try {
+          await fetch(`http://localhost:3000/deleteFavorites/${userInfo.user_id}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ favoriteId: channelId }),
+          });
+        } catch (error) {
           console.error('Erreur lors de la suppression du favori:', error);
-        });
+        }
       } else {
         favorites.value.push(channelId);
-        updateFavoritesList();
-
-        fetch(`http://localhost:3000/addFavorites/${userInfo.user_id}`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ favoriteId: channelId }),
-        })
-        .then(response => response.json())
-        .then(data => {
-          console.log('Favorite added', data);
-        })
-        .catch(error => {
+        try {
+          await fetch(`http://localhost:3000/addFavorites/${userInfo.user_id}`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ favoriteId: channelId }),
+          });
+        } catch (error) {
           console.error('Erreur lors de l\'ajout du favori:', error);
-        });
+        }
       }
     };
 
-    onMounted(() => {
-      fetchLiveChannels();
+    onMounted(fetchLiveChannels);
+
+    // Rafraîchir les données toutes les 5 minutes
+    const refreshInterval = setInterval(fetchLiveChannels, 5 * 60 * 1000);
+
+    // Nettoyer l'intervalle lors de la destruction du composant
+    onUnmounted(() => {
+      clearInterval(refreshInterval);
     });
 
     return {
@@ -171,76 +174,105 @@ export default {
 
 <style scoped>
 .live-channels-sidebar {
-  width: 250px;
-  background-color: #f7f7f7;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  position: fixed;
-  top: 100px;
-  left: 0;
-  height: calc(100% - 100px);
+  background-color: var(--background-color);
+  color: var(--text-color);
+  height: 100%;
   overflow-y: auto;
+  padding: 20px;
+  transition: all 0.3s ease;
 }
 
-h2 {
-  font-size: 18px;
-  color: #9146ff;
-  text-align: center;
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 20px;
 }
 
+.sidebar-header h2 {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--primary-color);
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: var(--text-color);
+  cursor: pointer;
+  transition: transform 0.3s ease;
+}
+
+.close-button:hover {
+  transform: scale(1.1);
+}
+
+.category-section {
+  margin-bottom: 30px;
+}
+
+.category-section h3 {
+  display: flex;
+  align-items: center;
+  font-size: 18px;
+  margin-bottom: 15px;
+  color: var(--secondary-color);
+}
+
+.category-icon {
+  margin-right: 10px;
+  font-size: 20px;
+}
+
+.channel-count {
+  margin-left: 10px;
+  font-size: 14px;
+  color: var(--text-color);
+  opacity: 0.7;
+}
+
 ul {
-  list-style-type: none;
+  list-style: none;
   padding: 0;
-  margin: 0;
 }
 
 .channel-item {
-  display: flex;
-  align-items: center;
   margin-bottom: 15px;
+  transition: all 0.3s ease;
 }
 
-.channel-link {
-  display: flex;
-  align-items: center;
-  text-decoration: none;
-  color: black;
+.empty-message {
+  font-style: italic;
+  opacity: 0.7;
 }
 
-.thumbnail {
-  width: 80px;
-  height: 45px;
+.list-enter-active,
+.list-leave-active {
+  transition: all 0.5s ease;
+}
+
+.list-enter-from,
+.list-leave-to {
+  opacity: 0;
+  transform: translateX(-30px);
+}
+
+/* Scrollbar styling */
+.live-channels-sidebar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.live-channels-sidebar::-webkit-scrollbar-track {
+  background: var(--background-color);
+}
+
+.live-channels-sidebar::-webkit-scrollbar-thumb {
+  background-color: var(--primary-color);
   border-radius: 4px;
-  margin-right: 10px;
 }
 
-.channel-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.channel-name {
-  font-weight: bold;
-  font-size: 14px;
-  margin: 0;
-}
-
-.viewers {
-  font-size: 12px;
-  color: #888;
-  margin: 5px 0 0;
-}
-
-.favorite-star {
-  margin-left: auto;
-  font-size: 20px;
-  cursor: pointer;
-  color: #ddd;
-}
-
-.favorite-star.favorited {
-  color: gold;
+.live-channels-sidebar::-webkit-scrollbar-thumb:hover {
+  background-color: var(--secondary-color);
 }
 </style>
