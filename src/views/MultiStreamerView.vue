@@ -1,6 +1,5 @@
 <template>
   <div class="multi-streamer-view">
-    <h1>Multi-Twitch Viewer</h1>
     <div v-if="streamsStore.streamCount" class="streams-grid" :class="streamsStore.gridClass">
       <div
         v-for="streamer in streamsStore.activeStreams"
